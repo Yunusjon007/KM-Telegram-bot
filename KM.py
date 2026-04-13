@@ -17,16 +17,15 @@ current_staff = None
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
-# --- RENDER UCHUN WEB SERVER (DUMMY) ---
+# --- RENDER UCHUN WEB SERVER ---
 async def handle(request):
-    return web.Response(text="KM Bot ishlamoqda!")
+    return web.Response(text="Bot is running!")
 
 async def start_web_server():
     app = web.Application()
     app.router.add_get("/", handle)
     runner = web.AppRunner(app)
     await runner.setup()
-    # Render avtomatik taqdim etadigan PORTdan foydalanamiz
     port = int(os.environ.get("PORT", 8080))
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
@@ -65,10 +64,8 @@ async def session_handler(message: types.Message):
             logging.error(f"Xatolik: {e}")
 
 async def main():
-    # Web serverni fonda ishga tushiramiz
     asyncio.create_task(start_web_server())
-    # Botni yurgizamiz
-    logging.info("🚀 Bot ishga tushdi!")
+    logging.info("🚀 Bot Renderda ishga tushdi!")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
