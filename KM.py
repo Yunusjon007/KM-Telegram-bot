@@ -43,14 +43,14 @@ async def session_handler(message: types.Message):
     text = message.text.lower() if message.text else ""
 
     # 1. Sessiyani boshlash
-    if text == "start":
+    if text == "1":
         is_session_active = True
         current_staff = STAFF_DATA[current_index]
         await message.reply(f"🚀 Sessiya boshlandi!\nMas'ul: <b>{current_staff['name']}</b>", parse_mode="HTML")
         return
 
     # 2. Sessiyani tugatish
-    if text == "stop":
+    if text == "0":
         if is_session_active:
             await message.reply(f"🛑 Sessiya tugadi.\nNavbat keyingi xodimga o'tdi.", parse_mode="HTML")
             current_index = (current_index + 1) % len(STAFF_DATA)
