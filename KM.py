@@ -10,12 +10,32 @@ API_TOKEN = '8695645149:AAGBV002oQ2hHBEBrV3YkXGNisLOhcpUeyY'
 GROUP_1_ID = -1003696980644  
 GROUP_2_ID = -1003844822699  
 
-STAFF_DATA = [
-    {"name": "@medprotarget_admin", "id": 123456789}, 
-    {"name": "@dr_radiologist_valiyev", "id": 987654321},
-    {"name": "@Yunusjon1994", "id": 510495201}
-]
+# Fayldan xodimlarni o'qib olish funksiyasi
+def load_staff():
+    staff_list = []
+    try:
+        # staff.txt faylini ochamiz
+        with open("staff.txt", "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and "," in line:
+                    parts = line.split(',')
+                    username = parts[0].strip()
+                    user_id = parts[1].strip()
+                    if username.startswith('@') and user_id.isdigit():
+                        staff_list.append({
+                            "name": username,
+                            "id": int(user_id)
+                        })
+        logging.info(f"Xodimlar ro'yxati yuklandi: {len(staff_list)} ta odam.")
+    except Exception as e:
+        logging.error(f"Fayl o'qishda xato: {e}")
+        # Faylda xato bo'lsa, xatolik bermasligi uchun zaxira (Sizning profilingiz)
+        staff_list = [{"name": "@Yunusjon1994", "id": 510495201}]
+    return staff_list
 
+# Dastlabki yuklash
+STAFF_DATA = load_staff()
 current_index = 0
 is_session_active = False
 current_staff = None
@@ -23,9 +43,9 @@ current_staff = None
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
-# --- RENDER WEB SERVER (DUMMY) ---
+# --- RENDER WEB SERVER ---
 async def handle(request):
-    return web.Response(text="KM Bot is fully operational!")
+    return web.Response(text="KM Bot txt-fayl orqali ishlamoqda!")
 
 async def start_web_server():
     app = web.Application()
@@ -39,15 +59,23 @@ async def start_web_server():
 # --- BOT MANTIQI ---
 @dp.message(F.chat.id == GROUP_1_ID)
 async def session_handler(message: types.Message):
-    global current_index, is_session_active, current_staff
+    global current_index, is_session_active, current_staff, STAFF_DATA
     
     raw_text = message.text.strip() if message.text else ""
     msg_text = raw_text.lower()
 
-    # 1. Sessiyani boshlash: "proyekt"
+    # 1. Boshlash: "proyekt"
     if msg_text == "proyekt":
+        # Har safar yangi sessiyada faylni qayta o'qiymiz
+        STAFF_DATA = load_staff()
+        if not STAFF_DATA:
+            await message.reply("Xatolik: staff.txt fayli bo'sh yoki topilmadi!")
+            return
+
         is_session_active = True
-        current_staff = STAFF_DATA[current_index]
+        # Navbatdagi xodimni tanlash
+        current_staff = STAFF_DATA[current_index % len(STAFF_DATA)]
+        
         await message.reply(
             f"🚀 <b>Yangi proyekt boshlandi!</b>\n"
             f"Mas'ul xodim: <b>{current_staff['name']}</b>", 
@@ -55,13 +83,12 @@ async def session_handler(message: types.Message):
         )
         return
 
-    # 2. Sessiyani tugatish: Alohida xabarda ✅ kelganda
-    # Bu shart xabar ichida ✅ borligini va hech qanday harf/raqam yo'qligini tekshiradi
+    # 2. Tugatish: ✅
     if raw_text and "✅" in raw_text:
-        # Harf va raqamlarni qidiramiz
+        # Harf yoki raqam borligini tekshirish (faqat emoji bo'lishi kerak)
         has_alphanumeric = bool(re.search(r'[a-zA-Z0-9а-яА-Я]', raw_text))
         
-        if not has_alphanumeric: # Agar harf/raqam bo'lmasa, demak bu faqat emoji xabari
+        if not has_alphanumeric:
             if is_session_active:
                 await message.reply(
                     f"🛑 <b>Proyekt yakunlandi.</b>\n"
@@ -74,18 +101,16 @@ async def session_handler(message: types.Message):
                 current_staff = None
             return
 
-    # 3. Fayllarni o'tkazish (Faqat sessiya ochiq bo'lsa)
+    # 3. Fayllarni o'tkazish
     if is_session_active:
         mention_tag = f"\n\n🎯 <b>Mas'ul:</b> {current_staff['name']}"
         try:
-            # Agar xabar faqat matn bo'lsa (proyekt so'zi emas)
             if message.text and msg_text != "proyekt":
                 await bot.send_message(
                     chat_id=GROUP_2_ID, 
                     text=message.text + mention_tag, 
                     parse_mode="HTML"
                 )
-            # Rasm, video yoki hujjat bo'lsa
             else:
                 await bot.copy_message(
                     chat_id=GROUP_2_ID,
@@ -95,24 +120,25 @@ async def session_handler(message: types.Message):
                     parse_mode="HTML"
                 )
             
-            # Xodimning shaxsiyiga bildirishnoma
+            # Xodimga lichka orqali bildirishnoma
             try:
-                await bot.send_message(chat_id=current_staff['id'], text="🔔 Yangi vazifa biriktirildi!")
-            except:
-                pass
+                await bot.send_message(
+                    chat_id=current_staff['id'], 
+                    text="🔔 <b>Yangi vazifa!</b>\nKM guruhida sizga topshiriq biriktirildi.",
+                    parse_mode="HTML"
+                )
+            except Exception:
+                pass 
 
         except Exception as e:
-            logging.error(f"Xato: {e}")
+            logging.error(f"Xatolik: {e}")
 
-# --- ISHGA TUSHIRISH ---
 async def main():
     asyncio.create_task(start_web_server())
     while True:
         try:
-            logging.info("🚀 Bot Renderda ishlamoqda...")
             await dp.start_polling(bot, skip_updates=True)
-        except Exception as e:
-            logging.error(f"⚠️ Xatolik: {e}")
+        except Exception:
             await asyncio.sleep(5)
 
 if __name__ == "__main__":
