@@ -8,15 +8,15 @@ from aiohttp import web
 API_TOKEN = '8695645149:AAGBV002oQ2hHBEBrV3YkXGNisLOhcpUeyY'
 
 # Guruh ID raqamlari
-GROUP_1_ID = -1003696980644  # KM 1-guruh
-GROUP_2_ID = -1003844822699  # KM 2-guruh
+GROUP_1_ID = -1003696980644  # KM 1-guruh (Asosiy)
+GROUP_2_ID = -1003844822699  # KM 2-guruh (Natija)
 
-# Xodimlar ma'lumotlari
-# Username @ belgisi bilan bo'lishi shart, ID esa lichkaga xabar borishi uchun.
+# Xodimlar ro'yxati
+# DIQQAT: Xodimlar botga bir marta /start bosishi shart, aks holda lichkaga xabar bormaydi.
 STAFF_DATA = [
-    {"name": "@medprotarget_admin", "id": 123456789}, # O'zgartiring
-    {"name": "@dr_radiologist_valiyev", "id": 987654321}, # O'zgartiring
-    {"name": "@Yunusjon1994", "id": 510495201} 
+    {"name": "@medprotarget_admin", "id": 123456789},  # Haqiqiy ID raqamni yozing
+    {"name": "@dr_radiologist_valiyev", "id": 987654321}, # Haqiqiy ID raqamni yozing
+    {"name": "@Yunusjon1994", "id": 510495201}          # Sizning ID raqamingiz
 ]
 
 current_index = 0
@@ -26,9 +26,9 @@ current_staff = None
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
-# --- RENDER UCHUN WEB SERVER ---
+# --- RENDER WEB SERVER (UYG'OQ TUTISH UCHUN) ---
 async def handle(request):
-    return web.Response(text="KM Bot is running 24/7!")
+    return web.Response(text="KM Bot is running 24/7 with 1/0 logic!")
 
 async def start_web_server():
     app = web.Application()
@@ -44,26 +44,27 @@ async def start_web_server():
 async def session_handler(message: types.Message):
     global current_index, is_session_active, current_staff
     
-    # Faqat matnli xabarlarni (1 yoki 0 ekanligini) tekshiramiz
-    text = message.text.strip() if message.text else ""
+    # Faqat matnli buyruqlarni tekshiramiz (1 yoki 0)
+    msg_text = message.text.strip() if message.text else ""
 
-    # 1. Boshlash (1 yuborilganda)
-    if text == "1":
+    # 1 yuborilganda - Boshlash
+    if msg_text == "1":
         is_session_active = True
         current_staff = STAFF_DATA[current_index]
         await message.reply(
             f"🚀 <b>Sessiya boshlandi!</b>\n"
-            f"Mas'ul xodim: {current_staff['name']}\n\n"
-            f"Yuboriladigan barcha fayllar unga biriktiriladi.", 
+            f"Mas'ul xodim: <b>{current_staff['name']}</b>\n\n"
+            f"Barcha fayllar shu xodimga biriktiriladi.", 
             parse_mode="HTML"
         )
         return
 
-    # 2. Tugatish (0 yuborilganda)
-    if text == "0":
+    # 0 yuborilganda - Tugatish
+    if msg_text == "0":
         if is_session_active:
             await message.reply(
                 f"🛑 <b>Sessiya tugadi.</b>\n"
+                f"Mas'ul: <b>{current_staff['name']}</b> edi.\n"
                 f"Navbat keyingi xodimga o'tdi.", 
                 parse_mode="HTML"
             )
@@ -75,9 +76,9 @@ async def session_handler(message: types.Message):
             await message.reply("Hozir faol sessiya yo'q. Boshlash uchun <b>1</b> yuboring.", parse_mode="HTML")
         return
 
-    # 3. Fayllarni o'tkazish (Faqat sessiya ochiq bo'lsa)
+    # Sessiya ochiq bo'lsa, xabarlarni o'tkazish
     if is_session_active:
-        # Otmetka qilish (mention) uchun username HTML formatida
+        # Xodimni ko'k yozuvda otmetka qilish
         mention_tag = f"\n\n🎯 <b>Mas'ul:</b> {current_staff['name']}"
         
         try:
@@ -86,37 +87,38 @@ async def session_handler(message: types.Message):
                 chat_id=GROUP_2_ID,
                 from_chat_id=GROUP_1_ID,
                 message_id=message.message_id,
-                # Asl caption bo'lsa uni oladi, bo'lmasa bo'sh matnga otmetkani qo'shadi
+                # Caption bo'lsa qo'shadi, bo'lmasa matnga otmetkani yopishtiradi
                 caption=(message.caption or "") + mention_tag if (message.caption or message.text) else mention_tag,
                 parse_mode="HTML"
             )
             
-            # Xodimning lichkasiga bildirishnoma
+            # Xodimning lichkasiga bildirishnoma yuborish
             try:
                 await bot.send_message(
                     chat_id=current_staff['id'],
-                    text=f"🔔 <b>Sizga yangi vazifa!</b>\nKM 1-guruhda sizga topshiriq biriktirildi.",
+                    text=f"🔔 <b>Yangi vazifa!</b>\nKM 1-guruhda sizga vazifa biriktirildi. Uni guruhda tekshiring.",
                     parse_mode="HTML"
                 )
             except Exception:
-                pass # Xodim start bosmagan bo'lishi mumkin
+                # Agar xodim botga start bosmagan bo'lsa, xato bermaydi
+                pass
 
         except Exception as e:
-            logging.error(f"Xatolik: {e}")
+            logging.error(f"Xabar yuborishda xatolik: {e}")
 
-# --- ISHGA TUSHIRISH ---
+# --- ASOSIY ISHGA TUSHIRISH ---
 async def main():
-    # Web serverni fonda yurgizamiz (Render o'chib qolmasligi uchun)
+    # Web serverni fonda ishga tushiramiz
     asyncio.create_task(start_web_server())
     
     # Botni abadiy siklda yurgizamiz
     while True:
         try:
-            logging.info("🚀 Bot Renderda ishga tushdi!")
+            logging.info("🚀 Bot Renderda faol...")
             await dp.start_polling(bot, skip_updates=True)
         except Exception as e:
             logging.error(f"⚠️ Uzilish: {e}")
-            await asyncio.sleep(5)
+            await asyncio.sleep(5) # Xatolik bo'lsa 5 soniya kutib qayta urinadi
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
