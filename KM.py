@@ -10,13 +10,16 @@ API_TOKEN = '8695645149:AAGBV002oQ2hHBEBrV3YkXGNisLOhcpUeyY'
 GROUP_1_ID = -1003696980644  # KM 1-guruh
 GROUP_2_ID = -1003844822699  # KM 2-guruh
 
-# Xodimlar ro'yxati (To'g'ridan-to'g'ri kod ichida)
+# Xodimlar ro'yxati
 STAFF_LIST = [
     "@Shoxrux_5557",
     "@eldorchik24",
     "@OYBEK_88_00",
     "@Doston0111"
 ]
+
+# Boshlash buyruqlari ro'yxati
+START_COMMANDS = ["proyekt", "proekt", "km"]
 
 current_index = 0
 is_session_active = False
@@ -25,9 +28,9 @@ current_staff_username = None
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
-# --- RENDER WEB SERVER (UYG'OQ TUTISH UCHUN) ---
+# --- RENDER WEB SERVER ---
 async def handle(request):
-    return web.Response(text="KM Bot User-List mode is active!")
+    return web.Response(text="KM Bot Multi-Command mode is active!")
 
 async def start_web_server():
     app = web.Application()
@@ -43,56 +46,46 @@ async def start_web_server():
 async def session_handler(message: types.Message):
     global current_index, is_session_active, current_staff_username
     
-    # Xabar matnini olish va bo'shliqlardan tozalash
     raw_text = message.text.strip() if message.text else ""
     msg_text = raw_text.lower()
 
-    # 1. Sessiyani boshlash: "proyekt"
-    if msg_text == "proyekt":
+    # 1. Sessiyani boshlash (KM, km, Proyekt, Proekt va h.k.)
+    if msg_text in START_COMMANDS:
         is_session_active = True
         current_staff_username = STAFF_LIST[current_index % len(STAFF_LIST)]
         await message.reply(
-            f"🚀 <b>Yangi proyekt boshlandi!</b>\n"
+            f"🚀 <b>Yangi sessiya boshlandi!</b>\n"
             f"Mas'ul xodim: <b>{current_staff_username}</b>", 
             parse_mode="HTML"
         )
         return
 
-    # 2. Sessiyani tugatish: ✅ (bitta yoki bir nechta)
-    # RegEx: xabar ichida ✅ borligini va hech qanday harf/raqam yo'qligini tekshiradi
+    # 2. Sessiyani tugatish (✅)
     if raw_text and "✅" in raw_text:
-        # Harf yoki raqam borligini qidirish
         has_alphanumeric = bool(re.search(r'[a-zA-Z0-9а-яА-Я]', raw_text))
-        
-        if not has_alphanumeric: # Faqat emoji bo'lsa
+        if not has_alphanumeric:
             if is_session_active:
                 await message.reply(
-                    f"🛑 <b>Proyekt yakunlandi.</b>\n"
-                    f"Mas'ul: <b>{current_staff_username}</b> edi.\n"
+                    f"🛑 <b>Sessiya yakunlandi.</b>\n"
                     f"Navbat keyingi xodimga o'tdi.", 
                     parse_mode="HTML"
                 )
-                # Navbatni keyingi xodimga o'tkazish
                 current_index = (current_index + 1) % len(STAFF_LIST)
                 is_session_active = False
                 current_staff_username = None
             return
 
-    # 3. Fayllarni o'tkazish (Faqat sessiya ochiq bo'lsa)
+    # 3. Fayllarni o'tkazish
     if is_session_active:
-        # Mas'ul xodimni @username orqali otmetka qilish
         mention_tag = f"\n\n🎯 <b>Mas'ul:</b> {current_staff_username}"
-        
         try:
-            # Agar xabar faqat matn bo'lsa
-            if message.text and msg_text != "proyekt":
+            if message.text and msg_text not in START_COMMANDS:
                 await bot.send_message(
                     chat_id=GROUP_2_ID, 
                     text=message.text + mention_tag, 
                     parse_mode="HTML"
                 )
-            # Rasm, video yoki hujjat (caption) bo'lsa
-            else:
+            elif not message.text: # Rasm yoki video bo'lsa
                 await bot.copy_message(
                     chat_id=GROUP_2_ID,
                     from_chat_id=GROUP_1_ID,
@@ -101,25 +94,18 @@ async def session_handler(message: types.Message):
                     parse_mode="HTML"
                 )
         except Exception as e:
-            logging.error(f"Xato yuz berdi: {e}")
+            logging.error(f"Xato: {e}")
 
-# --- ASOSIY ISHGA TUSHIRISH ---
 async def main():
-    # Render o'chib qolmasligi uchun web server
     asyncio.create_task(start_web_server())
-    
-    # Botni yurgizish
     while True:
         try:
-            logging.info("🚀 KM Bot ishga tushdi...")
+            logging.info("🚀 KM Bot Renderda ishlamoqda...")
             await dp.start_polling(bot, skip_updates=True)
         except Exception as e:
-            logging.error(f"⚠️ Uzilish: {e}")
+            logging.error(f"⚠️ Konflikt yoki uzilish: {e}")
             await asyncio.sleep(5)
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        pass
+    asyncio.run(main())
