@@ -15,6 +15,7 @@ STAFF_LIST = [
     "@Shoxrux_5557",
     "@eldorchik24",
     "@OYBEK_88_00",
+    "@Diyor_Yusupov86",
     "@Doston0111"
 ]
 
