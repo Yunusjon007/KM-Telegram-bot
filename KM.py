@@ -13,11 +13,9 @@ GROUP_2_ID = -1003844822699
 
 # Xodimlar ro'yxati
 STAFF_LIST = [
-    "@Shoxrux_5557",
     "@eldorchik24",
     "@OYBEK_88_00",
-    "@Diyor_Yusupov86",
-    "@Doston0111"
+    "@Diyor_Yusupov86"
 ]
 
 # Boshlash buyruqlari
@@ -27,6 +25,7 @@ START_COMMANDS = ["proyekt", "proekt", "km"]
 current_index = 0
 is_session_active = False
 current_staff_username = None
+forwarded_count = 0  # Sessiya davomida 2-guruhga nechta xabar o'tkazildi
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
@@ -54,7 +53,7 @@ async def start_web_server():
 # --- BOT MANTIQI ---
 @dp.message(F.chat.id == GROUP_1_ID)
 async def session_handler(message: types.Message):
-    global current_index, is_session_active, current_staff_username
+    global current_index, is_session_active, current_staff_username, forwarded_count
     
     # Xabar matnini aniqlash
     raw_text = message.text.strip() if message.text else ""
@@ -67,6 +66,7 @@ async def session_handler(message: types.Message):
     # 1. Sessiyani boshlash
     if any(cmd == msg_text for cmd in START_COMMANDS):
         is_session_active = True
+        forwarded_count = 0  # Yangi sessiya — hisoblagichni nolga tushiramiz
         current_staff_username = STAFF_LIST[current_index % len(STAFF_LIST)]
         await message.reply(
             f"🚀 <b>Yangi sessiya boshlandi!</b>\n"
@@ -81,14 +81,24 @@ async def session_handler(message: types.Message):
         has_alphanumeric = bool(re.search(r'[a-zA-Z0-9а-яА-Я]', raw_text))
         if not has_alphanumeric:
             if is_session_active:
-                await message.reply(
-                    f"🛑 <b>Sessiya yakunlandi.</b>\n"
-                    f"Navbat keyingi xodimga o'tdi.", 
-                    parse_mode="HTML"
-                )
-                current_index = (current_index + 1) % len(STAFF_LIST)
+                if forwarded_count > 0:
+                    # Haqiqiy vazifa o'tkazilgan → navbat keyingi xodimga o'tadi
+                    await message.reply(
+                        f"🛑 <b>Sessiya yakunlandi.</b>\n"
+                        f"Navbat keyingi xodimga o'tdi.", 
+                        parse_mode="HTML"
+                    )
+                    current_index = (current_index + 1) % len(STAFF_LIST)
+                else:
+                    # Hech narsa o'tkazilmadi (adashib ochilgan) → navbat o'sha xodimda qoladi
+                    await message.reply(
+                        f"↩️ <b>Sessiya bekor qilindi.</b>\n"
+                        f"Vazifa o'tkazilmadi — navbat <b>{current_staff_username}</b> da qoldi.", 
+                        parse_mode="HTML"
+                    )
                 is_session_active = False
                 current_staff_username = None
+                forwarded_count = 0
             return
 
     # 3. Fayllarni o'tkazish
@@ -115,6 +125,7 @@ async def session_handler(message: types.Message):
                     caption=(message.caption or "") + mention_tag,
                     parse_mode="HTML"
                 )
+            forwarded_count += 1  # Muvaffaqiyatli o'tkazildi — hisoblagichni oshiramiz
         except Exception as e:
             logging.error(f"Xabar yuborishda xato: {e}")
 
