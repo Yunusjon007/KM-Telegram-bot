@@ -19,7 +19,7 @@ STAFF_LIST = [
 ]
 
 # Boshlash buyruqlari
-START_COMMANDS = ["proyekt", "proekt", "km"]
+START_COMMANDS = ["proyekt", "proekt","22","33","11", "km"]
 
 # Global o'zgaruvchilar
 current_index = 0
